@@ -1,0 +1,67 @@
+@startuml
+title 校园二手交易系统组件图
+
+skinparam dpi 180
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #183241
+skinparam titleFontSize 23
+skinparam shadowing false
+skinparam titleFontColor #153746
+skinparam ArrowThickness 1.25
+skinparam nodesep 28
+skinparam ranksep 32
+skinparam packageStyle folder
+skinparam componentFontSize 15
+skinparam componentArrowFontSize 14
+skinparam ArrowColor #52677A
+skinparam componentStyle uml2
+skinparam componentBackgroundColor #F0F5F8
+skinparam componentBorderColor #45617A
+skinparam packageBackgroundColor #FAFCFE
+skinparam packageBorderColor #8797A5
+skinparam databaseBackgroundColor #EEF5F2
+skinparam databaseBorderColor #4B7163
+
+component "<b>交易端</b>\n访客和普通账号" as Market
+component "<b>管理端</b>\n管理员" as Admin
+
+package "模块化单体 Web 应用" {
+  component "<b>Web API</b>\n会话认证与路由" as Api #E7F4EF
+
+  package "业务模块" as Business {
+    component "<b>账号与权限</b>\n账号、会话及对象授权" as Identity
+    component "<b>商品管理与浏览</b>\n编辑、公开查询及商品状态" as Catalog #E7F4EF
+    component "<b>审核与违规处置</b>\n审核提交、封禁和违规标记" as Moderation
+    component "<b>预约与交付</b>\n预约、交付约定及状态联动" as Booking #E7F4EF
+    component "<b>操作记录</b>\n关键操作留痕和日志查询" as Audit
+    component "<b>交易统计</b>\n当前商品状态和已完成预约" as Stats
+  }
+
+  component "预约到期任务" as Expiry
+  component "事务与持久化接口" as Persistence
+}
+
+database "<b>关系数据库</b>\n账号、商品、审核提交、预约\n操作结果及审计日志" as Db
+folder "商品图片文件" as ImageFiles
+
+Market ..> Api : 浏览、发布与预约
+Admin ..> Api : 审核、管理与查询
+Api .[#207266].> Business : 按业务路由
+Api .down.> Identity : 识别调用身份
+Moderation .down.> Catalog : 审核与封禁
+Moderation .right.> Booking : 封禁时取消有效预约
+Booking .down.> Catalog : 核对商品并更新占用
+Booking .down.> Audit : 同事务留痕
+Expiry .down.> Booking : 检查待确认预约
+Business .down.> Persistence : 共用事务与存储
+Stats .down.> Persistence : 读取统计数据
+Persistence .down.> Db : 读写业务记录和日志
+Persistence .down.> ImageFiles : 读写图片
+
+Api -[hidden]right- Expiry
+Api -[hidden]down- Moderation
+Audit -[hidden]down- Persistence
+Identity -[hidden]right- Moderation
+Catalog -[hidden]right- Audit
+Audit -[hidden]right- Stats
+@enduml

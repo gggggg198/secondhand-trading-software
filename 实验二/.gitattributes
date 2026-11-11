@@ -1,0 +1,6 @@
+*.md text eol=lf
+*.drawio text eol=lf
+*.png binary
+*.pdf binary
+# Keep the PlantUML source bytes for artifact verification.
+*.puml -text whitespace=cr-at-eol

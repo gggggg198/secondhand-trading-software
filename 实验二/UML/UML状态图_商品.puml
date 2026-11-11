@@ -1,0 +1,47 @@
+@startuml
+!pragma layout elk
+title 商品状态图
+
+hide empty description
+skinparam dpi 180
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #183241
+skinparam titleFontSize 23
+skinparam shadowing false
+skinparam titleFontColor #153746
+skinparam ArrowThickness 1.25
+skinparam nodesep 36
+skinparam ranksep 39
+skinparam stateFontSize 16
+skinparam stateArrowFontSize 14
+skinparam ArrowColor #52677A
+skinparam stateBackgroundColor #F0F5F8
+skinparam stateBorderColor #45617A
+skinparam stateStartColor #36556F
+
+state "草稿" as Draft
+state "可封禁的商品状态" as Bannable {
+  state "待审核" as Reviewing
+  state "已驳回" as Rejected
+  state "已发布" as Published #E7F4EF
+  state "已下架" as OffShelf
+  state "已预约" as Reserved #FFF2DD
+
+  Reviewing --> Rejected : 管理员驳回\n[当前提交且有原因]
+  Rejected --> Reviewing : 卖家提交\n[信息完整]
+  Reviewing -[#207266]-> Published : 管理员通过 [当前提交]\n/ 按审核规则处理\n发布时间
+  Published --> OffShelf : 卖家下架\n[无有效预约]
+  OffShelf --> Reviewing : 卖家提交\n[信息完整]
+  Published -[#207266]-> Reserved : 买家预约成功\n/ 建立当前占用
+  Reserved --> Published : 普通取消、拒绝或过期\n[仍关联该预约]\n/ 释放占用
+}
+state "已售出" as Sold #E7F4EF
+state "已封禁" as Banned #FBECEF
+
+[*] --> Draft : / 创建草稿
+Draft -right[#207266]-> Reviewing : 卖家提交\n[信息完整]
+Reviewing -left-> Draft : 卖家撤回
+Reserved -[#207266]-> Sold : 买家完成已确认预约\n/ 同步完成预约
+Sold --> Sold : 管理员追加违规标记
+Bannable -[#A33E51]-> Banned : 管理员封禁 [有原因]\n/ 若有有效预约，同步取消
+@enduml

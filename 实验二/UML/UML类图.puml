@@ -1,0 +1,134 @@
+@startuml
+!pragma layout smetana
+title 校园二手交易系统领域类图
+
+hide circle
+hide empty methods
+skinparam dpi 180
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #183241
+skinparam titleFontSize 23
+skinparam shadowing false
+skinparam titleFontColor #153746
+skinparam ArrowThickness 1.25
+skinparam nodesep 36
+skinparam ranksep 40
+skinparam classFontStyle bold
+skinparam classFontSize 17
+skinparam classAttributeFontSize 14
+skinparam classArrowFontSize 13
+skinparam ArrowColor #52677A
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #F0F5F8
+skinparam classBorderColor #45617A
+skinparam noteBackgroundColor #F6F8FA
+skinparam noteBorderColor #8797A5
+
+class "账号" as Account {
+  accountID : ID
+  username : String
+  normalizedUsername : String {unique}
+  passwordHash : String
+  isAdmin : Boolean
+}
+
+class "商品" as Product #E7F4EF {
+  productID : ID
+  title : String [0..1]
+  description : Text [0..1]
+  category : Category [0..1]
+  condition : ItemCondition [0..1]
+  price : Decimal [0..1]
+  status : ProductStatus
+  version : Long
+  publishedAt : Instant [0..1]
+  currentReviewID : ID [0..1]
+  activeReservationID : ID [0..1]
+  --
+  submitForReview()
+  occupy(reservationID : ID)
+  releaseIfCurrent(reservationID : ID)
+}
+
+class "商品图片" as ProductImage {
+  imageID : ID
+  storageKey : String
+  mediaType : String
+  sizeBytes : Long
+}
+
+class "审核提交" as ReviewSubmission {
+  submissionID : ID
+  contentSnapshot : ProductSnapshot
+  status : ReviewStatus
+  submittedAt : Instant
+  decidedAt : Instant [0..1]
+  reason : String [0..1]
+}
+
+class "预约" as Reservation #E7F4EF {
+  reservationID : ID
+  status : ReservationStatus
+  version : Long
+  agreedPrice : Decimal
+  deliveryPlace : String
+  deliveryTime : Instant
+  createdAt : Instant
+  confirmDeadline : Instant
+  firstCompletedAt : Instant [0..1]
+  closeReason : String [0..1]
+  --
+  accept(now : Instant)
+  expire(now : Instant)
+  complete(now : Instant)
+}
+
+class "操作结果" as OperationResult {
+  resultID : ID
+  actor : ActorRef
+  action : Action
+  submissionKey : String
+  requestDigest : String
+  target : ObjectRef
+  resultRef : ObjectRef [0..1]
+  outcome : Outcome
+  resultCode : String
+  savedAt : Instant
+}
+
+class "审计日志" as AuditLog {
+  logID : ID
+  actor : ActorRef
+  target : ObjectRef
+  action : Action
+  occurredAt : Instant
+  outcome : Outcome
+  beforeState : String [0..1]
+  afterState : String [0..1]
+  reason : String [0..1]
+}
+
+Account "1" -down- "0..*" Product : 商品卖家
+Account "1" -down- "0..*" Reservation : 预约买家
+Account "1" -- "0..*" Reservation : 预约卖家
+Product "1" -right- "0..*" Reservation : 预约历史
+Product "1" *-down- "0..5" ProductImage : 附属图片
+Product "1" -up- "0..*" ReviewSubmission : 历次提交
+ReviewSubmission "0..*" -right- "0..1" Account : 审核人
+Reservation "0..1" -down- "0..*" OperationResult : 返回的预约
+OperationResult "0..1" -right- "0..*" AuditLog : 关联操作
+
+note left of Product
+  当前占用最多关联一条
+  本商品的有效预约。
+  提交审核时检查必填项
+  和图片限制。
+end note
+
+note bottom of OperationResult
+  用户、动作和提交标记
+  的组合唯一。
+  请求摘要覆盖目标
+  和业务参数。
+end note
+@enduml

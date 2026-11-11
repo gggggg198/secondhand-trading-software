@@ -1,0 +1,43 @@
+@startuml
+title 预约状态图
+
+hide empty description
+skinparam dpi 180
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #183241
+skinparam titleFontSize 23
+skinparam shadowing false
+skinparam titleFontColor #153746
+skinparam ArrowThickness 1.25
+skinparam nodesep 34
+skinparam ranksep 34
+skinparam stateFontSize 16
+skinparam stateArrowFontSize 14
+skinparam ArrowColor #52677A
+skinparam stateBackgroundColor #F0F5F8
+skinparam stateBorderColor #45617A
+skinparam stateStartColor #36556F
+
+state "有效预约 · 占用商品" as Active {
+  state "待卖家确认" as Pending #FFF2DD
+  state "卖家已确认" as Confirmed #E7F4EF
+  Pending : 确认截止取创建后 24 小时\n与约定交付时间中的较早者
+  [*] --> Pending
+  Pending -right[#207266]-> Confirmed : 本单卖家接受\n[服务器时间早于截止]
+}
+state "已拒绝" as Rejected
+state "已过期" as Expired
+state "已取消" as Cancelled
+state "已完成" as Completed #E7F4EF
+
+[*] --> Active : / 创建预约并保存约定快照\n商品进入已预约
+Pending --> Rejected : 本单卖家拒绝 [有原因]\n/ 普通释放
+Pending --> Expired : 到达确认截止\n[仍关联该预约] / 普通释放
+Pending --> Cancelled : 本单买家取消\n/ 普通释放
+Confirmed --> Cancelled : 本单买家或卖家取消\n[有原因] / 普通释放
+Confirmed -down[#207266]-> Completed : 本单买家确认收到实物\n/ 商品已售出，\n保存首次完成时间
+Active -down[#A33E51]-> Cancelled : 管理员封禁商品\n/ 记录平台原因，通知双方\n商品保持已封禁
+Rejected -right[hidden]-> Expired
+Expired -right[hidden]-> Completed
+Completed -right[hidden]-> Cancelled
+@enduml
