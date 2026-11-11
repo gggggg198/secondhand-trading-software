@@ -1,0 +1,28 @@
+test_all_six_booking_withdrawal_orders (__main__.DesignTests.test_all_six_booking_withdrawal_orders) ... ok
+test_ban_complete_and_cancel_complete_competitions (__main__.DesignTests.test_ban_complete_and_cancel_complete_competitions) ... ok
+test_checker_detects_original_counterexamples (__main__.DesignTests.test_checker_detects_original_counterexamples) ... ok
+test_completion_replay_keeps_first_time_and_one_success (__main__.DesignTests.test_completion_replay_keeps_first_time_and_one_success) ... ok
+test_confirmed_replay_after_deadline_does_not_expire (__main__.DesignTests.test_confirmed_replay_after_deadline_does_not_expire) ... ok
+test_current_read_permission_still_required (__main__.DesignTests.test_current_read_permission_still_required) ... ok
+test_deadline_before_equal_after (__main__.DesignTests.test_deadline_before_equal_after) ... ok
+test_diagrams_share_business_interfaces_and_states (__main__.DesignTests.test_diagrams_share_business_interfaces_and_states) ... ok
+test_expiry_survives_stale_invalid_create (__main__.DesignTests.test_expiry_survives_stale_invalid_create) ... ok
+test_failure_points_leave_no_partial_create_cancel_complete_ban (__main__.DesignTests.test_failure_points_leave_no_partial_create_cancel_complete_ban) ... ok
+test_nonbuyer_cannot_self_book (__main__.DesignTests.test_nonbuyer_cannot_self_book) ... ok
+test_normal_release_vs_platform_cancel (__main__.DesignTests.test_normal_release_vs_platform_cancel) ... ok
+test_old_cancel_and_expiry_leave_successor_unchanged (__main__.DesignTests.test_old_cancel_and_expiry_leave_successor_unchanged) ... ok
+test_only_buyer_can_complete_confirmed (__main__.DesignTests.test_only_buyer_can_complete_confirmed) ... ok
+test_rejected_result_does_not_execute_later (__main__.DesignTests.test_rejected_result_does_not_execute_later) ... ok
+test_rolled_back_lock_owner_does_not_win (__main__.DesignTests.test_rolled_back_lock_owner_does_not_win) ... ok
+test_same_key_after_rollback_executes (__main__.DesignTests.test_same_key_after_rollback_executes) ... ok
+test_same_key_different_content_conflicts (__main__.DesignTests.test_same_key_different_content_conflicts) ... ok
+test_same_key_different_target_waits_before_any_business (__main__.DesignTests.test_same_key_different_target_waits_before_any_business) ... ok
+test_same_key_waits_and_replays_once (__main__.DesignTests.test_same_key_waits_and_replays_once) ... ok
+test_seller_cancel_requires_confirmed_and_reason (__main__.DesignTests.test_seller_cancel_requires_confirmed_and_reason) ... ok
+test_success_response_lost_after_later_cancellation (__main__.DesignTests.test_success_response_lost_after_later_cancellation) ... ok
+test_waiting_product_reads_committed_state (__main__.DesignTests.test_waiting_product_reads_committed_state) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.008s
+
+OK

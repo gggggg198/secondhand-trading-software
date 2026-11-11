@@ -1,0 +1,78 @@
+@startuml
+
+skinparam dpi 170
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
+skinparam shadowing false
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 36
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
+hide footbox
+skinparam ParticipantPadding 12
+skinparam BoxPadding 8
+skinparam sequenceMessageAlign center
+skinparam sequenceMessageFontSize 15
+skinparam sequenceParticipantFontSize 16
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantBackgroundColor #EFF5F8
+skinparam sequenceParticipantBorderColor #507084
+skinparam sequenceLifeLineBorderColor #99ABB8
+skinparam sequenceGroupBorderColor #788D9D
+skinparam sequenceGroupBackgroundColor #EFF5F8
+skinparam sequenceGroupBodyBackgroundColor #FFFFFF
+
+title 并发竞争 · 两名买家与卖家下架
+actor "买家 A" as A
+actor "买家 B" as B
+actor "卖家 S" as S
+control "商品交易服务\n三个请求实例" as Service #E8F4EF
+database "PostgreSQL" as DB
+
+note over A, DB
+  初始：同一商品已发布、version = v、无有效预约。
+  三人均完成认证，各请求先取得各自 K 的事务锁并确认无原结果。
+end note
+par 创建预约 A
+  A -> Service : execute(预约命令 A, 买家 A)
+else 创建预约 B
+  B -> Service : execute(预约命令 B, 买家 B)
+else 卖家下架
+  S -> Service : execute(下架命令 S, 卖家 S)
+end
+Service -> DB : 三个独立事务均请求同一商品行锁
+DB --> Service : 一次只允许一个持有；其余等待
+
+alt A 首先取得锁并成功提交（B 先成功时对称）
+  Service -> DB : T_A：重读与校验 → 建立预约 A\n商品已预约；version = v+1\nSUCCESS 结果 + 成功审计；COMMIT
+  DB --> Service : 释放商品锁
+  Service -> DB : T_B、T_S 各自获锁后重读\n商品已预约，页面版本已变
+  Service -> DB : 各自保存 REJECTED + 失败说明\n业务不变；各自 COMMIT
+  Service --> A : 预约成功
+  Service --[#AE4F62]> B : 状态已变，请刷新
+  Service --[#AE4F62]> S : 已有有效预约，不能直接下架
+else S 首先取得锁并成功提交
+  Service -> DB : T_S：重读与校验 → 商品已下架\nversion = v+1；SUCCESS + 审计；COMMIT
+  DB --> Service : 释放商品锁
+  Service -> DB : T_A、T_B 各自获锁后重读\n已下架；保存各自 REJECTED 并提交
+  Service --> S : 下架成功
+  Service --[#AE4F62]> A : 商品不可预约，请刷新
+  Service --[#AE4F62]> B : 商品不可预约，请刷新
+end
+
+legend bottom
+  决定结果的是合法事务的成功提交顺序，按钮点击时间或先获锁后回滚均不算成功。
+  任一先行事务回滚，后续请求按实际已提交状态重新判断。
+  待审核“撤回审核”用 withdrawReview；已发布商品退出销售用 takeDown。
+  下架不自动取消预约；卖家须先依法拒绝/取消，再刷新并提交新的下架请求。
+endlegend
+
+@enduml

@@ -1,134 +1,124 @@
 @startuml
-!pragma layout smetana
-title 校园二手交易系统领域类图
 
-hide circle
-hide empty methods
-skinparam dpi 180
+skinparam dpi 170
 skinparam defaultFontName Microsoft YaHei
-skinparam defaultFontColor #183241
-skinparam titleFontSize 23
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
 skinparam shadowing false
-skinparam titleFontColor #153746
-skinparam ArrowThickness 1.25
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
 skinparam nodesep 36
-skinparam ranksep 40
-skinparam classFontStyle bold
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
+!pragma layout smetana
+hide circle
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #EFF5F8
+skinparam classBorderColor #507084
 skinparam classFontSize 17
 skinparam classAttributeFontSize 14
 skinparam classArrowFontSize 13
-skinparam ArrowColor #52677A
-skinparam classAttributeIconSize 0
-skinparam classBackgroundColor #F0F5F8
-skinparam classBorderColor #45617A
-skinparam noteBackgroundColor #F6F8FA
-skinparam noteBorderColor #8797A5
 
-class "账号" as Account {
+title 校园二手交易系统 · 核心领域类图
+
+class "账号\nAccount" as Account {
   accountID : ID
   username : String
-  normalizedUsername : String {unique}
+  /normalizedUsername : String {unique}
   passwordHash : String
   isAdmin : Boolean
 }
 
-class "商品" as Product #E7F4EF {
+class "商品\nProduct" as Product #E8F4EF {
   productID : ID
-  title : String [0..1]
-  description : Text [0..1]
-  category : Category [0..1]
-  condition : ItemCondition [0..1]
-  price : Decimal [0..1]
-  status : ProductStatus
+  content : ProductContent
+  -status : ProductStatus
   version : Long
   publishedAt : Instant [0..1]
-  currentReviewID : ID [0..1]
-  activeReservationID : ID [0..1]
+  violationMarks : ViolationMark [0..*]
   --
-  submitForReview()
-  occupy(reservationID : ID)
-  releaseIfCurrent(reservationID : ID)
+  +edit(content)
+  +submitForReview(now)
+  +withdrawReview(submissionID, now)
+  +approveReview(submissionID, now)
+  +rejectReview(submissionID, reason, now)
+  +takeDown()
+  +createReservation(buyer, terms, now)
+  +acceptReservation(r, now)
+  +rejectReservation(r, reason, now)
+  +cancelReservation(r, actor, reason, now)
+  +expireReservation(r, now)
+  +completeReservation(r, actor, now)
+  +ban(reason, now)
+  +markViolation(reason, actor, now)
 }
 
-class "商品图片" as ProductImage {
-  imageID : ID
-  storageKey : String
-  mediaType : String
-  sizeBytes : Long
+class "预约\nReservation" as Reservation #E8F4EF {
+  reservationID : ID
+  -status : ReservationStatus
+  agreedPrice : Decimal {readOnly}
+  terms : DeliveryTerms {readOnly}
+  createdAt : Instant {readOnly}
+  /confirmDeadline : Instant
+  firstCompletedAt : Instant [0..1]
+  closure : Closure [0..1]
+  --
+  ~accept(now)
+  ~reject(reason, now)
+  ~cancel(actor, reason, now)
+  ~expire(now)
+  ~complete(now)
+  ~cancelByPlatform(reason, now)
 }
 
-class "审核提交" as ReviewSubmission {
+class "审核提交\nReviewSubmission" as ReviewSubmission {
   submissionID : ID
-  contentSnapshot : ProductSnapshot
-  status : ReviewStatus
+  contentSnapshot : ProductSnapshot {readOnly}
+  -status : ReviewStatus
   submittedAt : Instant
   decidedAt : Instant [0..1]
   reason : String [0..1]
-}
-
-class "预约" as Reservation #E7F4EF {
-  reservationID : ID
-  status : ReservationStatus
-  version : Long
-  agreedPrice : Decimal
-  deliveryPlace : String
-  deliveryTime : Instant
-  createdAt : Instant
-  confirmDeadline : Instant
-  firstCompletedAt : Instant [0..1]
-  closeReason : String [0..1]
   --
-  accept(now : Instant)
-  expire(now : Instant)
-  complete(now : Instant)
+  ~withdraw(now)
+  ~approve(now)
+  ~reject(reason, now)
+  ~closeByBan(reason, now)
 }
 
-class "操作结果" as OperationResult {
-  resultID : ID
-  actor : ActorRef
-  action : Action
-  submissionKey : String
-  requestDigest : String
-  target : ObjectRef
-  resultRef : ObjectRef [0..1]
-  outcome : Outcome
-  resultCode : String
-  savedAt : Instant
+class "商品图片\nProductImage" as ProductImage {
+  storageKey : String
+  mediaType : String
+  sizeBytes : Long
+  displayOrder : Integer
 }
 
-class "审计日志" as AuditLog {
-  logID : ID
-  actor : ActorRef
-  target : ObjectRef
-  action : Action
-  occurredAt : Instant
-  outcome : Outcome
-  beforeState : String [0..1]
-  afterState : String [0..1]
-  reason : String [0..1]
-}
+ReviewSubmission "0..*" -right- "0..1" Account : reviewer
+Account "1" -down- "0..*" Product : seller {readOnly}
+Account "1" -down- "0..*" Reservation : buyer {readOnly}
+Product "1" -right- "0..*" Reservation : reservations {历史保留}
+ReviewSubmission "0..*" -down- "1" Product : submissions {历史保留}
+Product "1" *-down- "0..5" ProductImage : images
 
-Account "1" -down- "0..*" Product : 商品卖家
-Account "1" -down- "0..*" Reservation : 预约买家
-Account "1" -- "0..*" Reservation : 预约卖家
-Product "1" -right- "0..*" Reservation : 预约历史
-Product "1" *-down- "0..5" ProductImage : 附属图片
-Product "1" -up- "0..*" ReviewSubmission : 历次提交
-ReviewSubmission "0..*" -right- "0..1" Account : 审核人
-Reservation "0..1" -down- "0..*" OperationResult : 返回的预约
-OperationResult "0..1" -right- "0..*" AuditLog : 关联操作
-
-note left of Product
-  当前占用最多关联一条
-  本商品的有效预约。
-  提交审核时检查必填项
-  和图片限制。
+note bottom of Reservation
+  I1  /activeReservation = 本商品
+       唯一的待确认或已确认预约
+  I2  商品已预约当且仅当存在有效预约
+  I3  商品已售出当且仅当存在已完成预约
+  I4  /seller = product.seller
+       buyer ≠ product.seller
 end note
 
-note bottom of OperationResult
-  用户、动作和提交标记
-  的组合唯一。
-  请求摘要覆盖目标
-  和业务参数。
-end note
+legend bottom
+  + 业务入口   ~ 领域包内协作   / 派生信息，不再独立保存
+  Product 统一校验并驱动两种状态；应用服务负责锁与事务。
+  关联仅用角色表达，外键在存储映射中实现；不重复画为 ID 属性。
+  ProductContent、DeliveryTerms、Closure 的字段及完整守卫见解析第 2、4 节。
+endlegend
+
 @enduml

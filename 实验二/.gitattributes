@@ -2,5 +2,5 @@
 *.drawio text eol=lf
 *.png binary
 *.pdf binary
-# Keep the PlantUML source bytes for artifact verification.
+# UML validation stores checksums of the original source bytes.
 *.puml -text whitespace=cr-at-eol

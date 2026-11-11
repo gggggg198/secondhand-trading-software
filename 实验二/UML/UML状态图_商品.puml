@@ -1,47 +1,62 @@
 @startuml
-!pragma layout elk
-title 商品状态图
+
+skinparam dpi 170
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
+skinparam shadowing false
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 36
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
 
 hide empty description
-skinparam dpi 180
-skinparam defaultFontName Microsoft YaHei
-skinparam defaultFontColor #183241
-skinparam titleFontSize 23
-skinparam shadowing false
-skinparam titleFontColor #153746
-skinparam ArrowThickness 1.25
-skinparam nodesep 36
-skinparam ranksep 39
-skinparam stateFontSize 16
+skinparam stateBackgroundColor #EFF5F8
+skinparam stateBorderColor #507084
+skinparam stateFontSize 17
 skinparam stateArrowFontSize 14
-skinparam ArrowColor #52677A
-skinparam stateBackgroundColor #F0F5F8
-skinparam stateBorderColor #45617A
-skinparam stateStartColor #36556F
+
+!pragma layout elk
+
+title 商品状态图 · Product 的业务接口
 
 state "草稿" as Draft
-state "可封禁的商品状态" as Bannable {
+state "允许封禁的五种状态" as Bannable {
   state "待审核" as Reviewing
   state "已驳回" as Rejected
-  state "已发布" as Published #E7F4EF
+  state "已发布" as Published #E8F4EF
   state "已下架" as OffShelf
-  state "已预约" as Reserved #FFF2DD
+  state "已预约" as Reserved #FFF1D9
 
-  Reviewing --> Rejected : 管理员驳回\n[当前提交且有原因]
-  Rejected --> Reviewing : 卖家提交\n[信息完整]
-  Reviewing -[#207266]-> Published : 管理员通过 [当前提交]\n/ 按审核规则处理\n发布时间
-  Published --> OffShelf : 卖家下架\n[无有效预约]
-  OffShelf --> Reviewing : 卖家提交\n[信息完整]
-  Published -[#207266]-> Reserved : 买家预约成功\n/ 建立当前占用
-  Reserved --> Published : 普通取消、拒绝或过期\n[仍关联该预约]\n/ 释放占用
+  Reviewing --> Rejected : rejectReview(...)\n[当前提交；有原因]
+  Rejected --> Reviewing : submitForReview(now)\n[内容完整]
+  Reviewing -[#26725E]-> Published : approveReview(...)\n[当前提交]\n/ 更新或沿用 publishedAt
+  Published --> OffShelf : takeDown()\n[无有效预约]
+  OffShelf --> Reviewing : submitForReview(now)\n[内容完整]
+  Published -[#26725E]-> Reserved : createReservation(...)\n[非自购；约定有效]\n/ 同时建立待确认预约
+  Reserved --> Published : rejectReservation(...)\ncancelReservation(...)\nexpireReservation(...)\n[目标仍为当前有效预约]\n/ 原预约终止；保留 publishedAt
 }
-state "已售出" as Sold #E7F4EF
-state "已封禁" as Banned #FBECEF
+state "已售出" as Sold #E8F4EF
+state "已封禁" as Banned #F9E7EB
 
-[*] --> Draft : / 创建草稿
-Draft -right[#207266]-> Reviewing : 卖家提交\n[信息完整]
-Reviewing -left-> Draft : 卖家撤回
-Reserved -[#207266]-> Sold : 买家完成已确认预约\n/ 同步完成预约
-Sold --> Sold : 管理员追加违规标记
-Bannable -[#A33E51]-> Banned : 管理员封禁 [有原因]\n/ 若有有效预约，同步取消
+[*] --> Draft : 创建草稿
+Draft -right[#26725E]-> Reviewing : submitForReview(now)\n[内容完整]
+Reviewing -left-> Draft : withdrawReview(...)\n[当前提交]
+Reserved -[#26725E]-> Sold : completeReservation(...)\n[本单买家；预约已确认]\n/ 预约完成并保存首次完成时间
+Sold --> Sold : markViolation(...)\n[管理员；有原因]
+Bannable -[#AE4F62]-> Banned : ban(reason, now) [管理员；有原因]\n/ 当前预约 cancelByPlatform\n当前待审提交 closeByBan
+
+legend bottom
+  所有新变更均在商品行锁内校验角色、version 与当前关联；按事务 T 提交。
+  edit(content)：仅草稿、已驳回、已下架；保存内容但不改变状态。
+  acceptReservation(...)：商品保持已预约，预约进入卖家已确认；version 同样递增。
+  已封禁无恢复路径；已售出只允许追加违规标记。
+endlegend
+
 @enduml

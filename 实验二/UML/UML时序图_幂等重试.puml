@@ -1,0 +1,77 @@
+@startuml
+
+skinparam dpi 170
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
+skinparam shadowing false
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 36
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
+hide footbox
+skinparam ParticipantPadding 12
+skinparam BoxPadding 8
+skinparam sequenceMessageAlign center
+skinparam sequenceMessageFontSize 15
+skinparam sequenceParticipantFontSize 16
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantBackgroundColor #EFF5F8
+skinparam sequenceParticipantBorderColor #507084
+skinparam sequenceLifeLineBorderColor #99ABB8
+skinparam sequenceGroupBorderColor #788D9D
+skinparam sequenceGroupBackgroundColor #EFF5F8
+skinparam sequenceGroupBodyBackgroundColor #FFFFFF
+
+title 幂等重试 · 结果与业务共同提交
+actor "客户端" as Client
+control "商品交易服务\n重试请求" as Retry #E8F4EF
+database "PostgreSQL" as DB
+control "原请求事务 T1" as First
+
+Client -> Retry : 原 K、原目标及原参数重试
+Retry -> Retry : 重新认证；检查原目标或\n原结果关联预约的当前读取权限
+Retry -> DB : BEGIN T2；请求 K 的事务级锁
+opt T1 尚未结束
+  DB --> Retry : T2 等待，不执行领域动作
+  break 本次等锁超时
+    Retry -> DB : 回滚 T2；原事务 T1 不受影响
+    Retry --> Client : 结果待确认，请按原 K 重试
+  end
+  First -> DB : T1 提交，或异常/连接终止后回滚
+  DB --> Retry : T1 结束，释放 K；T2 才能取得
+end
+Retry -> DB : 锁后重新查 OperationResult(K)
+
+alt 存在最终结果 · T1 已提交
+  DB --> Retry : 保存的 requestDigest、结果和目标
+  Retry -> Retry : 比较目标、全部参数及 expectedVersion\n核对结果关联对象的当前读取权限
+  alt 同内容且仍有权限
+    Retry -> DB : 读取该原对象的当前状态；结束 T2
+    DB --> Retry : 原结果 + 当前状态
+    Retry --> Client : 返回原编号和结果；不重做变更
+  else 同 K 改内容，或当前无读取权限
+    Retry -> DB : 结束 T2；不改原结果
+    Retry --[#AE4F62]> Client : 提交标记冲突，或拒绝访问
+  end
+else 无最终结果 · T1 未提交或已回滚
+  DB --> Retry : 无 OperationResult(K)
+  ref over Retry, DB : 按正常图锁商品、重新校验并执行；结果与业务同事务
+  Retry --> Client : 本次实际执行的最终结果
+end
+
+legend bottom
+  首次事务提交前任何写入失败：业务、结果、成功日志全部回滚。
+  提交后响应丢失：结果已持久化；重试读取，即使预约后来取消也不重建。
+  等锁超时：仅回滚 T2，返回“尚未取得结果，请按原 K 重试”；不写永久 PROCESSING。
+  K 锁用 pg_advisory_xact_lock；事务结束释放。异常持锁由数据库超时配置终止。
+endlegend
+
+@enduml

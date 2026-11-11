@@ -1,67 +1,67 @@
 @startuml
-title 校园二手交易系统组件图
 
-skinparam dpi 180
+skinparam dpi 170
 skinparam defaultFontName Microsoft YaHei
-skinparam defaultFontColor #183241
-skinparam titleFontSize 23
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
 skinparam shadowing false
-skinparam titleFontColor #153746
-skinparam ArrowThickness 1.25
-skinparam nodesep 28
-skinparam ranksep 32
-skinparam packageStyle folder
-skinparam componentFontSize 15
-skinparam componentArrowFontSize 14
-skinparam ArrowColor #52677A
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 36
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
 skinparam componentStyle uml2
-skinparam componentBackgroundColor #F0F5F8
-skinparam componentBorderColor #45617A
-skinparam packageBackgroundColor #FAFCFE
-skinparam packageBorderColor #8797A5
-skinparam databaseBackgroundColor #EEF5F2
-skinparam databaseBorderColor #4B7163
+skinparam componentFontSize 16
+skinparam componentArrowFontSize 14
+skinparam componentBackgroundColor #EFF5F8
+skinparam componentBorderColor #507084
+skinparam packageBackgroundColor #FAFCFD
+skinparam packageBorderColor #99ABB8
+skinparam databaseBackgroundColor #E8F4EF
 
-component "<b>交易端</b>\n访客和普通账号" as Market
-component "<b>管理端</b>\n管理员" as Admin
+title 校园二手交易系统 · 组件与事务边界
 
-package "模块化单体 Web 应用" {
-  component "<b>Web API</b>\n会话认证与路由" as Api #E7F4EF
-
-  package "业务模块" as Business {
-    component "<b>账号与权限</b>\n账号、会话及对象授权" as Identity
-    component "<b>商品管理与浏览</b>\n编辑、公开查询及商品状态" as Catalog #E7F4EF
-    component "<b>审核与违规处置</b>\n审核提交、封禁和违规标记" as Moderation
-    component "<b>预约与交付</b>\n预约、交付约定及状态联动" as Booking #E7F4EF
-    component "<b>操作记录</b>\n关键操作留痕和日志查询" as Audit
-    component "<b>交易统计</b>\n当前商品状态和已完成预约" as Stats
-  }
-
-  component "预约到期任务" as Expiry
-  component "事务与持久化接口" as Persistence
+component "交易端 / 管理端" as UI
+package "单体 Web 应用" {
+  component "Web API\n商品 / 预约 / 审核入口" as API
+  component "账号与权限\n注册、会话、授撤权、对象授权" as Auth
+  component "到期任务\n扫描候选预约" as Timer
+  component "商品交易服务\nProductWorkflow\n商品 / 预约 / 审核命令" as Workflow #E8F4EF
+  component "查询服务\n商品 / 记录 / 统计查询" as Query
+  component "核心领域\nProduct / Reservation\nReviewSubmission" as Domain #E8F4EF
+  component "事务与存储\n同一数据库连接\n业务表 + 最终操作结果 + 审计记录" as Store
 }
+database "PostgreSQL\n事务锁 / 商品行锁 / 唯一约束" as DB
+folder "商品图片文件" as Files
 
-database "<b>关系数据库</b>\n账号、商品、审核提交、预约\n操作结果及审计日志" as Db
-folder "商品图片文件" as ImageFiles
+UI .down.> API : HTTP
+API .down.> Auth : 会话 / 账号入口
+API .down.> Workflow : execute(command, actor)
+API .right.> Query : 按权限读取
+Timer .down.> Workflow : expireIfDue(...)
+Workflow .down.> Auth : 当前操作授权
+Query .down.> Auth : 当前读取权限
+Workflow .down.> Domain : 调用业务方法
+Workflow .down.> Store : 商品变更统一事务 T
+Query .down.> Store : 查询；敏感访问留痕
+Auth .down.> Store : 账号持久化
+Store .down.> DB : SQL / COMMIT / ROLLBACK
+API .right.> Files : 图片上传与读取
 
-Market ..> Api : 浏览、发布与预约
-Admin ..> Api : 审核、管理与查询
-Api .[#207266].> Business : 按业务路由
-Api .down.> Identity : 识别调用身份
-Moderation .down.> Catalog : 审核与封禁
-Moderation .right.> Booking : 封禁时取消有效预约
-Booking .down.> Catalog : 核对商品并更新占用
-Booking .down.> Audit : 同事务留痕
-Expiry .down.> Booking : 检查待确认预约
-Business .down.> Persistence : 共用事务与存储
-Stats .down.> Persistence : 读取统计数据
-Persistence .down.> Db : 读写业务记录和日志
-Persistence .down.> ImageFiles : 读写图片
+Workflow -[hidden]right- Query
+Domain -[hidden]right- Auth
 
-Api -[hidden]right- Expiry
-Api -[hidden]down- Moderation
-Audit -[hidden]down- Persistence
-Identity -[hidden]right- Moderation
-Catalog -[hidden]right- Audit
-Audit -[hidden]right- Stats
+legend bottom
+  虚线箭头：调用方 → 被依赖组件；领域类不反向依赖数据库、日志或 Web API。
+  T：商品 + 预约/审核提交 + 最终操作结果 + 成功审计，共同提交或回滚。
+  审核、下架、封禁和到期任务均经 ProductWorkflow；查询服务不改业务状态。
+  图片文件在业务事务外准备；提交只保存已校验的文件引用。
+endlegend
+
 @enduml
