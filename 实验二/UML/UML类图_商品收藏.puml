@@ -1,0 +1,41 @@
+@startuml
+
+skinparam dpi 170
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
+skinparam shadowing false
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 40
+skinparam ranksep 40
+skinparam classBackgroundColor #EFF5F8
+skinparam classBorderColor #507084
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
+hide circle
+hide empty members
+title 商品收藏类图 · 账号、商品与关注量
+
+class "账号\nAccount" as Account
+class "收藏关系\nFavorite" as Favorite #E8F4EF
+class "商品\nProduct" as Product
+
+Account "1" -right- "0..*" Favorite
+Favorite "0..*" -right- "1" Product
+
+legend bottom
+  两侧外键组成联合主键，每对账号和商品至多一条关系。
+  关注量由当前收藏关系聚合得到，商品不另存计数。
+  添加收藏：登录，锁内检查商品已发布且属于其他账号。
+  取消收藏：按当前账号和商品删除；商品不可预约时仍可取消。
+  收藏关系的变更独立于商品版本、占用和预约状态。
+endlegend
+
+@enduml

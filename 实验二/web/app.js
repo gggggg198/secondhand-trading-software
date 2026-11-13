@@ -199,7 +199,7 @@
         ${errorBox}</form>
       ${invalid ? notice("价格范围有误", "请输入合法价格，最低价不能高于最高价。", "danger") : ""}
       <div class="section-heading"><h2>可预约商品</h2><span class="muted">共 ${products.length} 件 · 新发布优先</span></div>
-      ${page.items.length ? `<div class="cards">${page.items.map(productCard).join("")}</div>`
+      ${page.items.length ? `<div class="cards">${page.items.map((product) => productCard(product)).join("")}</div>`
       : empty("没有匹配的商品", "试试更换关键词、分类或价格范围。", link("market", "查看全部商品"))}
       ${page.footer}`;
   }

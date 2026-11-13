@@ -25,7 +25,7 @@ skinparam classFontSize 17
 skinparam classAttributeFontSize 14
 skinparam classArrowFontSize 13
 
-title 校园二手交易系统 · 核心领域类图
+title 小蓝鲸二手集市 · 核心领域类图
 
 class "账号\nAccount" as Account {
   accountID : ID

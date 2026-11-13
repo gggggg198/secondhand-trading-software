@@ -15,15 +15,16 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output" / "pdf" / "实验报告.pdf"
+BRAND = "小蓝鲸二手集市"
 PAGE_WIDTH, PAGE_HEIGHT = A4
 MARGIN = 46
 WIDTH = PAGE_WIDTH - 2 * MARGIN
 BOTTOM = 49
-INK = colors.HexColor("#22263A")
-MUTED = colors.HexColor("#50576D")
-ACCENT = colors.HexColor("#49358A")
-LINE = colors.HexColor("#DBDDE7")
-TINT = colors.HexColor("#F2F0F9")
+INK = colors.HexColor("#102945")
+MUTED = colors.HexColor("#4B6178")
+ACCENT = colors.HexColor("#1756B0")
+LINE = colors.HexColor("#D5E3EF")
+TINT = colors.HexColor("#EAF4FF")
 
 
 def register_fonts():
@@ -43,7 +44,7 @@ def style(name, size, leading, color=INK, font="YaHei"):
 class Report:
     def __init__(self, output):
         self.pdf = Canvas(str(output), pagesize=A4, pageCompression=1)
-        self.pdf.setTitle("软件工程实验二 · 软件设计与建模")
+        self.pdf.setTitle("小蓝鲸二手集市 · 软件设计与建模")
         self.pdf.setAuthor("李宇轩")
         self.pdf.setCreator("ReportLab")
         self.pdf.setSubject("校园二手交易系统设计")
@@ -120,7 +121,7 @@ class Report:
         self.page_number += 1
         self.page_title = title
         self.y = PAGE_HEIGHT - 78
-        self.label("南大集市  /  软件工程实验二", MARGIN, PAGE_HEIGHT - 32, bold=True)
+        self.label(BRAND + "  /  软件工程实验二", MARGIN, PAGE_HEIGHT - 32, bold=True)
         self.line(PAGE_HEIGHT - 42)
         self.label(section, MARGIN, PAGE_HEIGHT - 66, size=9.5, color=ACCENT, bold=True)
         if destination:
@@ -144,21 +145,23 @@ class Report:
         self.pdf.rect(MARGIN, PAGE_HEIGHT - 63, WIDTH, 3, stroke=0, fill=1)
         self.label("软件工程 · 实验二", MARGIN, PAGE_HEIGHT - 94, 12, ACCENT, True)
         self.label("软件设计与建模", MARGIN, PAGE_HEIGHT - 155, 38, INK, True)
-        self.label("南大集市", MARGIN, PAGE_HEIGHT - 210, 31, ACCENT, True)
+        self.label(BRAND, MARGIN, PAGE_HEIGHT - 210, 31, ACCENT, True)
+        self.pdf.drawImage(str(ROOT / "web/assets/blue-whale.png"), PAGE_WIDTH - MARGIN - 104,
+                           PAGE_HEIGHT - 226, width=104, height=104, mask="auto")
         self.label("校园二手交易系统设计报告", MARGIN, PAGE_HEIGHT - 244, 14)
         self.y = PAGE_HEIGHT - 288
         self.table([
             ("学号与姓名", "241220176　李宇轩"),
             ("实验课程", "软件工程"),
-            ("成稿日期", "2026 年 11 月 12 日"),
+            ("成稿日期", "2026 年 11 月 13 日"),
         ], 104)
         self.y -= 26
         self.subheading("目录")
         for title, destination, page_range in [
             ("项目范围与主要功能", "scope", "2"),
-            ("系统架构与 UML 设计", "architecture", "3-10"),
-            ("功能模块与 UI 原型", "ui", "11-17"),
-            ("AI 辅助、人工审查与验证", "ai", "18-21"),
+            ("系统架构与 UML 设计", "architecture", "3-11"),
+            ("功能模块与 UI 原型", "ui", "12-19"),
+            ("AI 辅助、人工审查与验证", "ai", "20-24"),
         ]:
             y = self.y - 14
             self.label(title, MARGIN, y, 11)
@@ -176,17 +179,17 @@ class Report:
 def add_scope(report):
     report.page("项目范围与主要功能", "一　项目与需求", "scope")
     report.paragraph(
-        "南大集市服务于校园内单件二手物品交易。访客浏览可预约商品，普通账号可作为买家或卖家。卖家发布的商品经管理员审核后公开，"
+        "小蓝鲸二手集市服务于校园内单件二手物品交易。访客浏览可预约商品，普通账号可收藏商品或参与交易。商品经管理员审核后公开，"
         "买家填写交付约定并独占预约，卖家接受后双方线下交付，由买家确认完成。款项由双方线下处理。"
     )
     report.paragraph(
         "本设计沿用实验一 lab1-final（提交 81b7509）的 32 条需求。下表列出六个功能模块的职责和主要需求。"
-        "REQ-023、028 分别贯穿数据关联及保存、核心界面可操作性。"
+        "REQ-023、028 分别贯穿数据关联及保存、核心界面可操作性。商品收藏与关注量来自本实验的补充反馈。"
     )
     report.table([
         ("功能模块", "职责与对应需求"),
         ("账号与权限", "普通账号注册、登录、访客访问、管理员授撤权和对象访问。密码哈希及服务端鉴权对应 REQ-001 至 004、029 至 030。"),
-        ("商品管理与浏览", "草稿、编辑、送审与撤回、卖家下架。公开页按关键词、分类和价格组合查询，每页 20 件。对应 REQ-005 至 007、009、011、031。"),
+        ("商品管理与浏览", "草稿、编辑、送审与撤回、卖家下架。支持关键词、分类和价格组合查询，按账号收藏并展示关注量。对应 REQ-005 至 007、009、011、031。"),
         ("审核与违规处置", "核对当前提交的快照，审核通过或说明驳回原因。封禁联动结束待审提交或有效预约，已售出商品可追加违规标记。对应 REQ-008、010。"),
         ("预约与交付", "独占预约、原交付约定、卖家接受或拒绝、双方取消、待确认过期、买家完成与历史查询，处理重复提交和旧页面。对应 REQ-012 至 022、032。"),
         ("操作记录", "记录关键变更和获授权的敏感访问，按主体和对象权限检索。成功记录随业务共同提交。对应 REQ-024 至 026。"),
@@ -199,7 +202,7 @@ def add_scope(report):
     )
     report.subheading("建模与界面制品")
     report.paragraph(
-        "PlantUML 图覆盖结构类图和组件图、行为状态图、交互时序图。报告收录 8 张完整图。draw.io 的 21 个画板覆盖正常操作和异常反馈，"
+        "PlantUML 图覆盖结构类图和组件图、行为状态图、交互时序图。报告收录 9 张完整图。22 张 draw.io 画板覆盖正常操作和异常反馈，"
         "报告展示代表界面，提交包提供各画板的完整 PNG。"
     )
     report.end_page()
@@ -209,7 +212,7 @@ def add_architecture(report):
     report.page("系统组件与模块依赖", "二　软件架构与 UML", "architecture")
     report.paragraph(
         "采用模块化单体与一个 PostgreSQL 数据库。Web 请求进入各功能 API，受保护的请求先通过账号组件鉴权。商品、审核、预约的写操作交由"
-        " ProductWorkflow，查询服务读取列表、详情和统计。到期任务调用同一工作流。"
+        " ProductWorkflow，查询服务读取列表、详情、收藏与统计。到期任务调用同一工作流。"
     )
     report.figure("UML", "UML组件图", "组件图。路由、应用服务、领域与持久化的调用方向。", max_height=463)
     report.paragraph(
@@ -218,7 +221,7 @@ def add_architecture(report):
     )
     report.paragraph(
         "<b>设计原因</b>　一条业务命令可同时影响商品和预约，集中写入口可以统一锁顺序、权限复查和版本检查。"
-        "查询、认证和统计维持各自职责，交易状态由同一领域入口改变。"
+        "收藏组件复用账号授权与数据库连接，只写收藏关系。查询服务计算关注量并按当前可见范围返回结果。"
     )
     report.end_page()
 
@@ -255,6 +258,24 @@ def add_architecture(report):
     report.paragraph(
         "<b>持久化与留存</b>　账号、商品、送审、预约、操作结果与审计记录写入数据库，商品图片通过文件引用关联。"
         "业务记录、操作结果和审计至少保留 180 天，本期保留历史，起算规则沿用实验一待确认事项。"
+    )
+    report.end_page()
+
+    report.page("商品收藏与关注量", "二　软件架构与 UML", "favorites")
+    report.paragraph(
+        "Favorite 将一个登录账号与一件商品关联。两侧外键组成联合主键，保证每对账号和商品最多一条关系。"
+        "关注量在查询时聚合，可按商品索引计数。"
+    )
+    report.figure("UML", "UML类图_商品收藏", "类图。账号、商品及独立的收藏关系。", max_height=390)
+    report.table([
+        ("操作", "设计规则"),
+        ("收藏", "添加时在短事务中锁定商品并核对商品仍已发布且属于其他账号。重复添加保持已收藏状态。"),
+        ("取消收藏", "按当前账号和商品删除。商品被预约、下架或售出后，原收藏者仍可取消。"),
+        ("显示", "详情和预约页显示当前关注量。我的收藏按当前账号查询，商品不可预约时只展示其编号和取消入口。"),
+    ], 92)
+    report.paragraph(
+        "收藏的事务只保存收藏关系。商品版本、预约状态和交付记录继续由原交易服务管理。"
+        "当前网页以本地演示数据验证收藏交互，联合主键和事务是后端实现约束。"
     )
     report.end_page()
 
@@ -352,20 +373,27 @@ def add_ui(report):
         ),
         (
             "商品管理与浏览", "ui-products",
-            "访客可按关键词、分类和价格组合筛选。02 展示商品详情，06 用于编辑草稿或送审。卖家在 05 按状态办理商品。",
-            ("01_集市浏览", "公开集市。按发布时间排序并分页显示可预约商品。"),
-            ("05_我的商品", "我的商品。待审可撤回，已发布且无有效预约可下架，已预约可查看当前预约。"),
+            "访客组合筛选关键词、分类和价格。卡片显示分类、成色、描述摘要、卖家和关注量。"
+            "卖家在 05 管理商品。06 用于编辑草稿或送审。",
+            ("01_集市浏览", "可预约商品按新发布优先排列。爱心可收藏，暖橙用于价格。"),
+            ("05_我的商品", "我的商品。待审可撤回，已发布且无有效预约可下架，已预约商品提示当前占用。"),
+        ),
+        (
+            "商品详情与我的收藏", "ui-favorites",
+            "登录后点击商品爱心可收藏或取消。关注量按当前收藏账号数计算。我的收藏保留已不可预约条目及取消入口。",
+            ("02_商品详情", "商品详情。显示完整描述、成色、卖家和当前关注量。"),
+            ("22_我的收藏", "我的收藏。实心爱心表示已收藏，失效条目仍可取消。"),
         ),
         (
             "审核与违规处置", "ui-review",
             "管理员对当前送审快照作审核决定。封禁前确认联动范围，影响有效预约时同步保存平台取消原因，便于买卖双方查询。",
             ("14_商品审核", "商品审核。核对提交 ID、送审内容与审核决定。"),
-            ("15_违规处置", "违规处置。显示封禁影响，已售出商品可追加违规标记。"),
+            ("15_违规处置", "违规处置。确认框提示封禁会联动取消当前有效预约。"),
         ),
         (
             "预约与交付", "ui-reservation",
             "买家填写未来 30 天内的交付时间与地点。08 查看进度，09 由卖家处理。买家经 10 确认收货，成交记录见 11。",
-            ("07_提交预约", "提交预约。固定交付约定和预约时价格。"),
+            ("07_提交预约", "提交预约。对照商品成色、卖家、约定价和关注量后填写交付信息。"),
             ("09_卖家处理预约", "卖家处理。展示当前预约、接受截止及接受或拒绝操作。"),
         ),
         (
@@ -392,7 +420,7 @@ def add_ui(report):
         report.paragraph(lead, gap=5)
         for filename, caption in (first, second):
             number = filename.split("_", 1)[0]
-            report.figure("UI界面", filename, f"画板 {number} · {caption}", max_width=433, gap=7)
+            report.figure("UI界面", filename, f"画板 {number} · {caption}", max_width=433, max_height=277, gap=7)
         report.end_page()
 
 
@@ -461,6 +489,22 @@ def add_ai_log(report):
     )
     report.end_page()
 
+    report.page("AI 辅助记录 · 定稿同步", "四　AI 使用与人工审查", "ai-final")
+    for entry in [
+        (21, "提出新版界面要求", "用户要求换用小蓝鲸标识与名称，增加配色层次和预约商品信息，并提出以收藏表示关注量。AI 给出可操作的界面调整。",
+         "以深蓝区分标题，亮蓝表示主操作，暖橙突出价格。商品继续按发布时间排序，卡片显示描述摘要、卖家和关注量。"),
+        (22, "生成小蓝鲸标识", "内置图像生成工具根据透明方形、蓝鲸侧身和浅青腹部的描述生成标识。生成速度快，小尺寸效果需要实测。",
+         "保留透明通道并缩至 384 像素，用于页眉、首页和浏览器图标。检查标识在桌面与窄屏中的可辨识度。"),
+        (23, "实现并验证收藏", "AI 在网页演示中按账号保存收藏，覆盖游客登录、取消、关注量和历史浏览器数据。网页测试可以核对交互，本地数据无法证明后端并发。",
+         "用联合主键及独立收藏关系补充 UML。关注量由关系聚合，保留原商品版本和预约语义。"),
+        (24, "同步定稿制品", "用户指定当前网页为最终 UI。AI 复现实际页面状态，重建 draw.io 可编辑图元并导出 22 张 PNG，同步说明、UML 与报告。",
+         "检查品牌、页面编号、跳转和示例状态。旧画板由新版替换，移出重复素材及可再生校验输出。"),
+        (25, "核对提交范围", "AI 对照课程清单打包 PDF、PlantUML 和界面图。文件级校验能发现多余项或版本不一致，人工审查依据需保留在 Git。",
+         "核对 ZIP 条目及文件字节。初版、人工审核修改版和定稿通过 Git 提交分别记录。"),
+    ]:
+        report.log_entry(*entry)
+    report.end_page()
+
     report.page("工作流、验证与版本记录", "四　AI 使用与人工审查", "validation")
     report.subheading("人只做检查校对的条件")
     report.paragraph(
@@ -474,15 +518,16 @@ def add_ai_log(report):
     report.subheading("已验证的范围")
     report.table([
         ("证据", "验证范围"),
-        ("PlantUML 制品", "8 份独立源文件通过 PlantUML 1.2025.4 语法检查，8 张 PNG 内嵌源码与对应源文件一致。"),
+        ("PlantUML 制品", "9 份独立源文件通过 PlantUML 1.2025.4 语法检查，9 张 PNG 的内嵌源码与对应源文件一致。"),
         ("设计模型", "23 个测试方法通过。包含三方竞争的 6 种顺序、4 类动作的 20 组提交前失败、截止边界、终态和重试。"),
-        ("UI 设计与网页", "draw.io 检查主要导航链路。Chrome 验证预约与交付、审核、冲突提示、结果恢复、记录及统计等流程。Edge 验证本地打开、登录和预约。用户确认网页原型可进入下一步。"),
+        ("UI 设计与网页", "按当前网页状态导出 22 张 draw.io 界面。浏览器点验收藏、取消、关注量、预约交付、结果恢复、状态冲突及到期场景。"),
         ("后端验收", "实验三仍需在真实 PostgreSQL 和 HTTP 接口下验证并发、提交断线、权限校验、过期时限和查询性能。浏览器使用本地演示数据，两标签页检查的是顺序发生的旧状态冲突。"),
     ], 107)
     report.subheading("版本与材料索引")
     report.paragraph(
         "<b>lab2-ai-draft</b>　2026-11-11 20:16:22。AI 设计初版，恢复人工审查前的 UML 与解析。<br/>"
-        "<b>lab2-reviewed-v2</b>　2026-11-12 00:19:34。人工审核修改版，收录修订后 UML、UI、网页和报告。"
+        "<b>lab2-reviewed-v2</b>　2026-11-12 00:19:34。人工审核修改版，收录修订后 UML、UI、网页和报告。<br/>"
+        "<b>lab2-final</b>　2026-11-13。小蓝鲸定稿，同步收藏、画板、UML 和报告。"
     )
     report.paragraph(
         "两项 Git 时间为北京时间，分别对应首轮提交请求及网页验收。项目资料包括《UML 图解析》《UI 界面说明》"

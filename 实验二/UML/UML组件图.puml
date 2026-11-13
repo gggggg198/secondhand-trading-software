@@ -25,15 +25,16 @@ skinparam packageBackgroundColor #FAFCFD
 skinparam packageBorderColor #99ABB8
 skinparam databaseBackgroundColor #E8F4EF
 
-title 校园二手交易系统 · 组件与事务边界
+title 小蓝鲸二手集市 · 组件与事务边界
 
 component "交易端 / 管理端" as UI
 package "单体 Web 应用" {
-  component "Web API\n商品 / 预约 / 审核入口" as API
+  component "Web API\n商品 / 预约 / 审核 / 收藏入口" as API
   component "账号与权限\n注册、会话、授撤权、对象授权" as Auth
   component "到期任务\n扫描候选预约" as Timer
   component "商品交易服务\nProductWorkflow\n商品 / 预约 / 审核命令" as Workflow #E8F4EF
-  component "查询服务\n商品 / 记录 / 统计查询" as Query
+  component "查询服务\n商品 / 收藏 / 记录 / 统计" as Query
+  component "商品收藏\n按当前账号收藏 / 取消" as Favorites
   component "核心领域\nProduct / Reservation\nReviewSubmission" as Domain #E8F4EF
   component "事务与存储\n同一数据库连接\n业务表 + 最终操作结果 + 审计记录" as Store
 }
@@ -44,12 +45,15 @@ UI .down.> API : HTTP
 API .down.> Auth : 会话 / 账号入口
 API .down.> Workflow : execute(command, actor)
 API .right.> Query : 按权限读取
+API .left.> Favorites : 收藏命令
 Timer .down.> Workflow : expireIfDue(...)
 Workflow .down.> Auth : 当前操作授权
 Query .down.> Auth : 当前读取权限
+Favorites .down.> Auth : 核对当前账号
 Workflow .down.> Domain : 调用业务方法
 Workflow .down.> Store : 商品变更统一事务 T
 Query .down.> Store : 查询；敏感访问留痕
+Favorites .down.> Store : 保存收藏关系
 Auth .down.> Store : 账号持久化
 Store .down.> DB : SQL / COMMIT / ROLLBACK
 API .right.> Files : 图片上传与读取
@@ -60,7 +64,8 @@ Domain -[hidden]right- Auth
 legend bottom
   虚线箭头：调用方 → 被依赖组件；领域类不反向依赖数据库、日志或 Web API。
   T：商品 + 预约/审核提交 + 最终操作结果 + 成功审计，共同提交或回滚。
-  审核、下架、封禁和到期任务均经 ProductWorkflow；查询服务不改业务状态。
+  审核、下架、封禁和到期任务均经 ProductWorkflow。
+  收藏操作只写收藏关系；查询服务按关系计数并按权限返回商品信息。
   图片文件在业务事务外准备；提交只保存已校验的文件引用。
 endlegend
 

@@ -5,7 +5,6 @@ Requires Pillow for reading embedded source and PNG dimensions.
 """
 from pathlib import Path
 import hashlib
-import json
 import re
 import subprocess
 import sys
@@ -15,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 jar = Path(sys.argv[1]).resolve()
 sources = sorted((ROOT / 'UML').glob('*.puml'))
 pngs = sorted((ROOT / 'UML').glob('*.png'))
-assert len(sources) == len(pngs) == 8
+assert len(sources) == len(pngs) == 9
+assert {source.stem for source in sources} == {png.stem for png in pngs}
 assert len(list((ROOT / 'UML').glob('*时序图*.puml'))) == 3
 result = subprocess.run(['java', '-Dfile.encoding=UTF-8', '-jar', str(jar),
     '-charset', 'UTF-8', '-checkonly', *map(str, sources)],
@@ -45,11 +45,8 @@ report = ROOT / 'UML图解析.md'
 for target in re.findall(r'\]\(([^)]+)\)', report.read_text(encoding='utf-8')):
     if not target.startswith(('https:', 'http:')):
         assert (report.parent / target).is_file(), target
-data = dict(plantuml_version='1.2025.4', standalone_diagrams=8,
-    sequence_diagrams=3, syntax_check='passed', embedded_source_check='passed',
-    documentation_links='passed', identifier_check='passed', artifacts=entries)
-(ROOT / 'validation/artifact-checks.json').write_text(
-    json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-print('PASS: 8 standalone sources; 8 PNGs; 3 sequence diagrams; embedded sources, ID spelling and links match.')
+print('PASS: 9 standalone sources; 9 PNGs; 3 sequence diagrams; embedded sources, ID spelling and links match.')
 for entry in entries:
     print(f"{entry['source']}: {entry['width']}x{entry['height']}")
+    print(f"  source SHA-256: {entry['source_sha256']}")
+    print(f"  image  SHA-256: {entry['png_sha256']}")

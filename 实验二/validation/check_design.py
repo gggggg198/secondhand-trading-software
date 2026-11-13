@@ -9,7 +9,6 @@ from copy import deepcopy
 from dataclasses import dataclass, replace
 from itertools import permutations
 from pathlib import Path
-import io
 import re
 import unittest
 
@@ -452,32 +451,4 @@ class DesignTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    stream = io.StringIO()
-    result = unittest.TextTestRunner(stream=stream, verbosity=2).run(
-        unittest.defaultTestLoader.loadTestsFromTestCase(DesignTests))
-    output = stream.getvalue()
-    print(output)
-    (ROOT / 'validation/model-test-output.txt').write_text(output, encoding='utf-8')
-    passed = result.wasSuccessful()
-    report = f'''# 设计模型验证结果
-
-运行命令：`python validation/check_design.py`。验证日期：2026-11-11。
-
-- 测试方法数：{result.testsRun}；失败：{len(result.failures)}；错误：{len(result.errors)}。
-- 模型结果：{'全部通过' if passed else '未通过，见原始记录'}。
-- 三方竞争：枚举两名买家和卖家下架的全部 6 种顺序。
-- 原子失败模型：创建、取消、完成、封禁 × 5 个提交前失败点，共 20 组。
-- 其他覆盖：K 锁等待/回滚/重试、不同目标和内容冲突、丢响应后返回原对象当前状态、
-  权限重查、拒绝结果重放、截止前/等于/之后、独立过期、后继预约保护、
-  完成与取消/封禁竞争、角色限制、首次完成时间、普通释放/平台取消、接口覆盖。
-- 反例检查：主动制造“下架仍有有效预约”和“两条有效预约”，确认不变量能检测到。
-
-这里是离散设计模型，不是后端实现。提交原子性和锁的语义是模型前提；
-没有运行真实 PostgreSQL、多线程 HTTP、连接池、进程崩溃或性能测试。
-因此这些结果不能证明 SQL 实现正确、故障一定恢复或过期达到 60 秒指标。
-真实集成验收清单见 `../UML图解析.md` 第 7 节。
-
-原始输出：[model-test-output.txt](model-test-output.txt)。
-'''
-    (ROOT / 'validation/验证结果.md').write_text(report, encoding='utf-8')
-    raise SystemExit(0 if passed else 1)
+    unittest.main(verbosity=2)
