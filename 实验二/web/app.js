@@ -2,6 +2,8 @@
   "use strict";
 
   const D = globalThis.MarketDemo;
+  const BRAND = "小蓝鲸二手集市";
+  const LOGO = "assets/blue-whale.png";
   const site = document.getElementById("site");
   const dialog = document.getElementById("action-dialog");
   const toast = document.getElementById("notice");
@@ -115,9 +117,10 @@
   function header(r) {
     const me = snapshot.actor;
     return `<header class="header"><div class="wrap header-inner">
-      <a class="brand" href="#market"><span class="brand-mark" aria-hidden="true">集</span>南大集市</a>
+      <a class="brand" href="#market"><span class="brand-mark"><img src="${LOGO}" alt="" width="46" height="46"></span>${BRAND}</a>
       <nav class="nav" aria-label="主导航">
         ${tabLink("market", "逛集市", ["market", "product"].includes(r.name))}
+        ${tabLink("favorites", "我的收藏", r.name === "favorites")}
         ${me ? tabLink("seller", "我的商品", ["seller", "edit", "logs", "stats"].includes(r.name)) : ""}
         ${me ? tabLink("bookings", "我的预约", ["bookings", "booking", "book", "recovery"].includes(r.name)) : ""}
         ${me?.admin ? tabLink("review", "管理端", adminRoutes.has(r.name)) : ""}
@@ -136,6 +139,43 @@
     </nav><div>${content}</div></div>`;
   }
 
+  const categoryTones = { "电子产品": "blue", "书籍": "violet", "生活用品": "teal", "运动用品": "gold" };
+
+  function productTags(product) {
+    return `<div class="product-tags">
+      <span class="tag category-${categoryTones[product.category] || "neutral"}">${esc(product.category)}</span>
+      <span class="tag condition">${esc(product.condition)}</span>
+    </div>`;
+  }
+
+  function favoriteButton(product) {
+    if (product.sellerID === snapshot.actor?.ID) return "";
+    const saved = snapshot.favorites.includes(product.ID);
+    return `<button type="button" class="favorite-button" data-favorite="${esc(product.ID)}"
+      aria-pressed="${saved}" aria-label="收藏 ${esc(product.title)}" title="${saved ? "取消收藏" : "收藏商品"}">
+      <span class="heart" aria-hidden="true">${saved ? "♥" : "♡"}</span>
+    </button>`;
+  }
+
+  const interest = (product) => `<span class="interest" title="当前收藏该商品的账号数">关注量 <b>${product.followers}</b></span>`;
+
+  function productCard(product, fromFavorites = false) {
+    const path = "#" + esc(pathWith("product/" + product.ID, { from: fromFavorites ? "favorites" : "" }));
+    return `<article class="product-card">
+      <a class="card-link" href="${path}" aria-label="查看 ${esc(product.title)}">
+        <div class="card-media">${image(product.photos[0], "")}</div>
+        <div class="card-body">
+          ${productTags(product)}
+          <h3>${esc(product.title)}</h3>
+          <p class="card-description">${esc(product.description)}</p>
+          <small class="card-seller">卖家 · ${esc(person(product.sellerID))}</small>
+          <div class="card-bottom"><span class="price">${money(product.cents)}</span>${interest(product)}</div>
+        </div>
+      </a>
+      ${favoriteButton(product)}
+    </article>`;
+  }
+
   function market(r) {
     const values = Object.fromEntries(r.params);
     const q = (values.q || "").trim().toLowerCase();
@@ -148,8 +188,8 @@
       && (!category || product.category === category) && product.cents >= min && product.cents <= max);
     products.sort((a, b) => b.publishedAt - a.publishedAt || a.ID.localeCompare(b.ID));
     const page = pagination(products, r, "market");
-    return `<section class="hero"><div class="hero-copy"><h1>校园二手集市</h1><p>挑选可预约商品，和同学在校园内见面交付。</p></div>
-      <img src="assets/keyboard.jpg" alt="集市中的机械键盘"></section>
+    return `<section class="hero"><div class="hero-copy"><h1>${BRAND}</h1><p>挑选校园闲置，预约后和同学见面交付。</p></div>
+      <div class="hero-mark" aria-hidden="true"><img src="${LOGO}" alt=""></div></section>
       <form class="panel filters" data-form="market">
         ${field("关键词", input("q", values.q, 'placeholder="输入商品关键词" maxlength="60"'))}
         ${field("分类", select("category", D.CATEGORIES, category, "全部分类"))}
@@ -159,31 +199,46 @@
         ${errorBox}</form>
       ${invalid ? notice("价格范围有误", "请输入合法价格，最低价不能高于最高价。", "danger") : ""}
       <div class="section-heading"><h2>可预约商品</h2><span class="muted">共 ${products.length} 件 · 新发布优先</span></div>
-      ${page.items.length ? `<div class="cards">${page.items.map((product) => `<a class="product-card" href="#product/${product.ID}">
-        ${image(product.photos[0], product.title)}<div class="card-body"><h3>${esc(product.title)}</h3>
-        <div class="card-meta"><span class="price">${money(product.cents)}</span><small>${esc(product.category)} · ${esc(product.condition)}</small></div>
-        <small>${stamp(product.publishedAt)} 发布</small></div></a>`).join("")}</div>`
+      ${page.items.length ? `<div class="cards">${page.items.map(productCard).join("")}</div>`
       : empty("没有匹配的商品", "试试更换关键词、分类或价格范围。", link("market", "查看全部商品"))}
       ${page.footer}`;
   }
 
-  function productDetail(product) {
+  function favoritesPage(r) {
+    const page = pagination(snapshot.favorites, r, "favorites");
+    const rows = page.items.map((ID) => {
+      const product = snapshot.products.find((item) => item.ID === ID && item.status === "PUBLISHED");
+      if (product) return productCard(product, true);
+      return `<article class="panel saved-unavailable">
+        <div><h3>商品当前不可预约</h3><small>商品 ID · ${esc(ID)}</small></div>
+        ${button("取消收藏", "secondary small", `type="button" data-favorite="${esc(ID)}" aria-pressed="true"`)}
+      </article>`;
+    });
+    return heading("我的收藏", "", `<span class="muted">共 ${snapshot.favorites.length} 件</span>`)
+      + (rows.length ? `<div class="cards">${rows.join("")}</div>${page.footer}`
+        : empty("还没有收藏商品", "点击商品卡片右上角的爱心即可收藏。", link("market", "去逛集市", "")));
+  }
+
+  function productDetail(product, fromFavorites) {
+    const back = fromFavorites ? "favorites" : "market";
+    const backLabel = fromFavorites ? "返回我的收藏" : "返回集市";
     if (!product || product.status !== "PUBLISHED") {
-      return heading("商品当前不可预约") + empty("商品状态已变化", "回到集市查看当前可预约的商品。", link("market", "返回集市", ""));
+      return heading("商品当前不可预约") + empty("商品状态已变化", "可在集市查看其他可预约商品。", link(back, backLabel, ""));
     }
     const self = product.sellerID === actorID;
     const action = self ? link("seller", "管理我的商品") : snapshot.actor ? link("book/" + product.ID, "预约商品", "")
       : link(pathWith("login", { next: "book/" + product.ID }), "登录后预约", "");
-    return `${crumb("market", "返回集市")}<div class="split">
+    return `${crumb(back, backLabel)}<div class="split">
       <section class="panel"><div data-gallery-main>${image(product.photos[0], product.title, "cover detail-photo")}</div>
       ${product.photos.length > 1 ? `<div class="gallery" aria-label="商品图片">
         ${product.photos.map((src, n) => `<button type="button" class="thumb" data-gallery="${n}" aria-label="查看第 ${n + 1} 张图片" aria-pressed="${n === 0}">${image(src, "")}</button>`).join("")}
       </div>` : ""}
       <div class="section-heading"><h2>商品描述</h2></div><p class="desc">${esc(product.description)}</p></section>
       <section class="panel detail-copy"><span class="chip good">可预约</span><h1>${esc(product.title)}</h1>
-        <p class="price large">${money(product.cents)}</p><p class="muted">${esc(product.category)} · ${esc(product.condition)}</p><hr class="rule">
-        ${pairs([["商品 ID", product.ID], ["卖家", person(product.sellerID)], ["发布时间", stamp(product.publishedAt)]])}
-        <div class="actions">${action}</div>
+        <div class="detail-meta"><p class="price large">${money(product.cents)}</p>${interest(product)}</div>
+        ${productTags(product)}<hr class="rule">
+        ${pairs([["商品 ID", product.ID], ["卖家", person(product.sellerID)]])}
+        <div class="actions">${action}${favoriteButton(product)}</div>
         ${notice("校园内见面交付", "交付时间和地点由买家在预约时提出。")}
       </section></div>`;
   }
@@ -196,7 +251,7 @@
     return `<div class="auth-layout">
       <div class="auth-side"><h2>校园二手交易</h2><p>登录后可以预约商品或发布闲置。</p><img src="assets/books.jpg" alt="可在集市交换的二手教材"></div>
       <section class="auth-form"><div class="form-stack">
-        ${heading(register ? "创建普通账号" : "登录南大集市", register ? "请使用演示用的用户名和密码。" : "可使用下方演示账号体验不同角色。")}
+        ${heading(register ? "创建普通账号" : "登录" + BRAND, register ? "请使用演示用的用户名和密码。" : "可使用下方演示账号体验不同角色。")}
         <form class="form-stack" data-form="${register ? "register" : "login"}" data-next="${esc(next)}">
           ${field("用户名", input("username", "", 'required maxlength="20" autocomplete="username"'), register ? "4–20 位字母、数字或下划线，忽略大小写判重。" : "")}
           ${field("密码", input("password", "", `type="password" required maxlength="64" autocomplete="${register ? "new-password" : "current-password"}"`), register ? "长度为 10–64 位。" : "")}
@@ -204,7 +259,7 @@
           ${errorBox}${button(register ? "创建账号" : "登录")}
         </form>
         <div class="actions spread"><a href="#market">‹ 继续浏览</a>
-          <a href="#${register ? "login" : "register"}">${register ? "已有账号，去登录" : "没有账号，去注册"}</a></div>
+          <a href="#${esc(pathWith(register ? "login" : "register", { next }))}">${register ? "已有账号，去登录" : "没有账号，去注册"}</a></div>
         ${register ? "" : `<div class="account-demo" data-next="${esc(next)}"><p class="muted">点击任一角色直接登录演示。</p><div class="demo-accounts">${demoButtons()}</div></div>`}
       </div></section></div>`;
   }
@@ -309,7 +364,10 @@
         ${errorBox}<div class="actions end">${link("product/" + product.ID, "返回商品")}${button("提交预约")}</div>
       </form>
       <aside class="panel stack"><h2>预约商品</h2>${image(product.photos[0], product.title)}
-        <h3>${esc(product.title)}</h3>${pairs([["商品 ID", product.ID], ["卖家", person(product.sellerID)], ["预约时价格", money(product.cents)]])}
+        <h3>${esc(product.title)}</h3>${productTags(product)}
+        <div class="detail-meta"><span class="price"><small>预约时价格</small> ${money(product.cents)}</span>${interest(product)}</div>
+        ${pairs([["商品 ID", product.ID], ["卖家", person(product.sellerID)]])}
+        <p class="desc">${esc(product.description)}</p>
         <p class="muted">预约建立后会占用这件商品。双方线下见面交付。</p></aside></div>`;
   }
 
@@ -541,14 +599,15 @@
 
   function page(r) {
     if (r.name === "market") return market(r);
-    if (r.name === "product") return productDetail(snapshot.products.find((product) => product.ID === r.id));
+    if (r.name === "product") return productDetail(snapshot.products.find((product) => product.ID === r.id), r.params.get("from") === "favorites");
     if (r.name === "login") return authPage(false, r.params.get("next") || "");
-    if (r.name === "register") return authPage(true);
+    if (r.name === "register") return authPage(true, r.params.get("next") || "");
     if (!snapshot.actor) return authPage(false, r.full);
     if (adminRoutes.has(r.name) && !snapshot.actor.admin) {
       return heading("需要管理权限") + empty("当前账号无法访问管理端", "可以切换到获授权的演示管理员账号。", link("login", "切换账号"));
     }
     switch (r.name) {
+      case "favorites": return favoritesPage(r);
       case "seller": return myProducts(r);
       case "edit": return editPage(r.id);
       case "book": return bookingForm(r.id);
@@ -590,11 +649,11 @@
         error instanceof D.DemoError ? error.message : "请刷新页面后再试。", link("market", "返回集市", ""))}`;
     }
     site.innerHTML = `${header(r)}<main class="wrap" id="content" tabindex="-1">${content}
-      <footer class="footer"><small>南大集市 · 本地演示 · ${service.persistent ? "数据保存在当前浏览器" : "数据保存在当前窗口"}</small>
+      <footer class="footer"><small>${BRAND} · 本地演示 · ${service.persistent ? "数据保存在当前浏览器" : "数据保存在当前窗口"}</small>
       <button class="btn ghost small" type="button" data-reset>重置演示数据</button></footer>
     </main>`;
     const h1 = site.querySelector("h1");
-    document.title = h1 ? h1.textContent + " · 南大集市" : "南大集市";
+    document.title = h1 && h1.textContent !== BRAND ? h1.textContent + " · " + BRAND : BRAND;
   }
 
   function showToast(message) {
@@ -634,7 +693,7 @@
     actorID = account.ID;
     sessionWrite(SESSION, actorID);
     delivery = null;
-    const permitted = /^(market|product|book|bookings|booking|seller|edit|review|moderation|admin-[a-z-]+|logs|stats|recovery)([/?]|$)/.test(requested);
+    const permitted = /^(market|product|book|bookings|booking|favorites|seller|edit|review|moderation|admin-[a-z-]+|logs|stats|recovery)([/?]|$)/.test(requested);
     const home = account.admin ? "review" : account.name === "lin_seller" ? "seller" : "market";
     go(permitted ? requested : home);
     showToast("已登录 " + account.name);
@@ -669,7 +728,7 @@
     } else if (kind === "register") {
       if (fields.password !== fields.confirm) throw new D.DemoError("input", "两次输入的密码不一致。");
       const account = await service.register(fields.username, fields.password);
-      signedIn(account);
+      signedIn(account, form.dataset.next);
       showToast("账号已创建。");
     } else if (kind === "market" || kind === "query") {
       handleSearch(kind, form, Object.fromEntries(Object.entries(fields).map(([name, value]) => [name, String(value).trim()])));
@@ -752,7 +811,7 @@
   function openReset() {
     dialogAction = { reset: true };
     dialog.innerHTML = `<form class="form-stack" data-dialog-form><div><h2 id="dialog-title">重置演示数据</h2>
-      <p class="muted">恢复初始商品和演示账号。此浏览器里新建的演示账号、商品与预约将被清除。</p></div>
+      <p class="muted">恢复初始演示数据。此浏览器里新建的演示账号、商品、预约和收藏将被清除。</p></div>
       ${errorBox}<div class="actions end">${button("返回", "secondary", 'type="button" data-close-dialog')}
       ${button("确认重置", "danger")}</div></form>`;
     dialog.showModal();
@@ -864,6 +923,23 @@
         element.disabled = true;
         try { signedIn(await service.login(account.name, D.DEMO_PASSWORD), next); }
         finally { if (element.isConnected) element.disabled = false; }
+      } else if (element.dataset.favorite) {
+        if (!snapshot.actor) {
+          go(pathWith("login", { next: route().full }));
+          showToast("登录后可以收藏商品。");
+          return;
+        }
+        const productID = element.dataset.favorite;
+        const saved = element.getAttribute("aria-pressed") !== "true";
+        const hadFocus = element === document.activeElement;
+        service.setFavorite(actorID, productID, saved);
+        render();
+        if (hadFocus) {
+          const buttons = [...site.querySelectorAll("[data-favorite]")];
+          const next = buttons.find((item) => item.dataset.favorite === productID) || buttons[0] || site.querySelector("main");
+          next.focus({ preventScroll: true });
+        }
+        showToast(saved ? "已加入我的收藏。" : "已取消收藏。");
       } else if (element.dataset.cmd) {
         openCommand(element);
       } else if (element.dataset.private) {
@@ -913,7 +989,7 @@
   });
   window.setInterval(() => {
     try {
-      if (service.expire() && !dialog.open && ["market", "product", "seller", "bookings", "booking", "admin-bookings"].includes(route().name)) render();
+      if (service.expire() && !dialog.open && ["market", "product", "favorites", "seller", "bookings", "booking", "admin-bookings"].includes(route().name)) render();
     } catch (error) {
       showToast(error instanceof D.DemoError ? error.message : "当前无法更新演示数据。");
     }

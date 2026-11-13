@@ -107,6 +107,13 @@
     reservations.push(accepted, completed);
     return {
       schema: 1, accounts, products, reservations, results: [],
+      favorites: [
+        { actorID: "U-1004", productID: "P-1042" },
+        { actorID: "U-1003", productID: "P-1042" },
+        { actorID: "U-1003", productID: "P-1043" },
+        { actorID: "U-1002", productID: "P-1044" },
+        { actorID: "U-1004", productID: "P-1081" }
+      ],
       logs: [
         { at: completed.completedAt, actorID: completed.buyerID, type: "complete", objectID: completed.ID,
           before: "卖家已确认 / 已预约", after: "已完成 / 已售出", outcome: "成功", reason: "", scope: [completed.buyerID, sold.sellerID] },
@@ -134,7 +141,10 @@
           const raw = storage.getItem(DATABASE);
           if (raw) {
             const value = JSON.parse(raw);
-            if (value.schema === 1 && Array.isArray(value.products) && Array.isArray(value.reservations)) local = value;
+            if (value.schema === 1 && Array.isArray(value.products) && Array.isArray(value.reservations)) {
+              if (!Array.isArray(value.favorites)) value.favorites = [];
+              local = value;
+            }
           }
         } catch { persistent = false; }
       }
@@ -491,11 +501,36 @@
       return accountView(account);
     }
 
+    function setFavorite(actorID, productID, saved) {
+      const db = read();
+      const actor = loginRequired(db, actorID);
+      if (saved) {
+        const product = find(db.products, productID);
+        if (product?.status !== "PUBLISHED") fail("unavailable", "商品当前无法收藏，请刷新后再查看。");
+        if (product.sellerID === actor.ID) fail("input", "只能收藏其他账号发布的商品。");
+      }
+      const index = db.favorites.findIndex((item) => item.actorID === actor.ID && item.productID === productID);
+      if (saved && index === -1) {
+        db.favorites.push({ actorID: actor.ID, productID });
+        write(db);
+      } else if (!saved && index !== -1) {
+        db.favorites.splice(index, 1);
+        write(db);
+      }
+    }
+
     function snapshot(actorID) {
       const db = read();
       const actor = find(db.accounts, actorID);
       const admin = !!actor?.admin;
-      const products = db.products.filter((item) => item.status === "PUBLISHED" || item.sellerID === actorID || admin);
+      const followers = new Map();
+      const favorites = [];
+      for (const favorite of db.favorites) {
+        followers.set(favorite.productID, (followers.get(favorite.productID) || 0) + 1);
+        if (actor && favorite.actorID === actor.ID) favorites.push(favorite.productID);
+      }
+      const products = db.products.filter((item) => item.status === "PUBLISHED" || item.sellerID === actorID || admin)
+        .map((item) => ({ ...item, followers: followers.get(item.ID) || 0 }));
       const reservations = actor ? db.reservations.filter((item) => {
         const sellerID = find(db.products, item.productID)?.sellerID;
         return admin || item.buyerID === actorID || sellerID === actorID;
@@ -506,7 +541,7 @@
       }) : [];
       return {
         actor: accountView(actor), accounts: db.accounts.map(({ ID, name, admin: canManage }) => ({ ID, name, admin: canManage })),
-        products, reservations, logs: actor ? db.logs.filter((item) => admin || item.scope.includes(actorID)) : []
+        products, favorites, reservations, logs: actor ? db.logs.filter((item) => admin || item.scope.includes(actorID)) : []
       };
     }
 
@@ -528,7 +563,7 @@
     }
 
     return {
-      snapshot, expire, command, login, register, bookingDetail,
+      snapshot, expire, command, login, register, bookingDetail, setFavorite,
       reset() { write(makeSeed(clock())); },
       get persistent() { return persistent; }
     };
