@@ -1,13 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
-from os import environ
 from threading import Barrier
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from psycopg import sql
-from psycopg.conninfo import make_conninfo
 
 from whale_market.accounts import Accounts, AdminAlreadyInitialized, Credentials
 from whale_market.api import SESSION_COOKIE, create_app
@@ -15,29 +11,6 @@ from whale_market.config import Settings
 from whale_market.db import apply_migrations, open_database
 
 TEST_CREDENTIALS = {"username": "Stage3Buyer", "password": "TestPasswordOnly2026"}
-
-
-@pytest.fixture
-def empty_database_url():
-    database_url = environ.get("WHALE_TEST_DATABASE_URL")
-    if not database_url:
-        pytest.skip("需要设置 WHALE_TEST_DATABASE_URL")
-    schema = f"test_whale_{uuid4().hex}"
-    with open_database(database_url) as connection:
-        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-    try:
-        yield make_conninfo(database_url, options=f"-c search_path={schema}")
-    finally:
-        with open_database(database_url) as connection:
-            connection.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
-            )
-
-
-@pytest.fixture
-def database_url(empty_database_url):
-    apply_migrations(empty_database_url)
-    return empty_database_url
 
 
 def test_validation_response_omits_submitted_password():
@@ -60,7 +33,10 @@ def test_migrations_are_repeatable(empty_database_url):
     app = create_app(Settings(empty_database_url))
     with TestClient(app) as client:
         assert client.get("/api/health").status_code == 503
-        assert apply_migrations(empty_database_url) == ["001_accounts.sql"]
+        assert apply_migrations(empty_database_url) == [
+            "001_accounts.sql",
+            "002_marketplace.sql",
+        ]
         assert apply_migrations(empty_database_url) == []
         assert client.get("/api/health").json() == {"status": "ok"}
 

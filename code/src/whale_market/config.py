@@ -14,6 +14,7 @@ class ConfigError(ValueError):
 class Settings:
     database_url: str = field(repr=False)
     secure_cookie: bool = True
+    expiry_interval: float = 5.0
 
     @classmethod
     def from_environment(cls) -> Self:

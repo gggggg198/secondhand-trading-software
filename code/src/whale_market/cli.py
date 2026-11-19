@@ -20,8 +20,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("migrate", help="应用数据库迁移")
     administrator = commands.add_parser("init-admin", help="初始化首名管理员")
     administrator.add_argument("username")
-    serve = commands.add_parser("serve", help="在回环地址启动本地 HTTP 服务")
+    serve = commands.add_parser("serve", help="启动本机 HTTP 或配置证书后的 HTTPS 服务")
     serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--ssl-certfile")
+    serve.add_argument("--ssl-keyfile")
     args = parser.parse_args(argv)
 
     try:
@@ -43,8 +46,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             print(f"首名管理员已初始化，账号编号 {administrator.id}。")
         elif args.command == "serve":
-            app = create_app(replace(settings, secure_cookie=False))
-            uvicorn.run(app, host="127.0.0.1", port=args.port)
+            tls = bool(args.ssl_certfile and args.ssl_keyfile)
+            if bool(args.ssl_certfile) != bool(args.ssl_keyfile):
+                parser.error("请同时提供 HTTPS 证书和私钥。")
+            if args.host not in {"127.0.0.1", "::1", "localhost"} and not tls:
+                parser.error("监听非回环地址时请配置 HTTPS 证书和私钥。")
+            app = create_app(replace(settings, secure_cookie=tls))
+            uvicorn.run(
+                app,
+                host=args.host,
+                port=args.port,
+                ssl_certfile=args.ssl_certfile,
+                ssl_keyfile=args.ssl_keyfile,
+            )
     except (
         ConfigError,
         MigrationError,
