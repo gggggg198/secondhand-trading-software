@@ -1,0 +1,69 @@
+@startuml
+
+skinparam dpi 170
+skinparam defaultFontName Microsoft YaHei
+skinparam defaultFontColor #213B4B
+skinparam titleFontColor #163E4C
+skinparam titleFontSize 22
+skinparam shadowing false
+skinparam ArrowColor #567083
+skinparam ArrowThickness 1.3
+skinparam nodesep 36
+skinparam ranksep 38
+skinparam noteBackgroundColor #F7F9FB
+skinparam noteBorderColor #99ABB8
+skinparam noteFontSize 13
+skinparam legendBackgroundColor #F7F9FB
+skinparam legendBorderColor #99ABB8
+
+hide footbox
+skinparam ParticipantPadding 12
+skinparam BoxPadding 8
+skinparam sequenceMessageAlign center
+skinparam sequenceMessageFontSize 15
+skinparam sequenceParticipantFontSize 16
+skinparam sequenceParticipantFontStyle bold
+skinparam sequenceParticipantBackgroundColor #EFF5F8
+skinparam sequenceParticipantBorderColor #507084
+skinparam sequenceLifeLineBorderColor #99ABB8
+skinparam sequenceGroupBorderColor #788D9D
+skinparam sequenceGroupBackgroundColor #EFF5F8
+skinparam sequenceGroupBodyBackgroundColor #FFFFFF
+
+title 正常预约 · 一次明确的提交边界
+actor "买家" as Buyer
+boundary "Web API" as API
+control "商品交易服务\nProductWorkflow" as Service #E8F4EF
+entity "商品与预约\nProduct / Reservation" as Domain
+database "PostgreSQL" as DB
+
+Buyer -> API : 预约(productID, expectedVersion,\n交付时间地点, submissionKey)
+API -> API : 认证；检查当前对象读取权限
+API -> Service : execute(创建预约, 当前买家)
+group T · READ COMMITTED，所有 SQL 使用同一连接
+  Service -> DB : BEGIN；取得 K 的事务级锁
+  Service -> DB : 锁后查 OperationResult(K)
+  DB --> Service : 未处理
+  Service -> DB : SELECT 商品 FOR UPDATE\n随后读取当前有效预约
+  DB --> Service : 已发布、无有效预约、最新 version
+  Service -> Service : 校验操作权限、expectedVersion\n非自购、交付约定、锁后服务器时间
+  note over Service, DB
+    本图展示无到期占用的正常路径。
+    若发现到期占用，按 X0 先独立过期，再从 K 检查重入。
+  end note
+  Service -> Domain : createReservation(buyer, terms, now)
+  Domain --> Service : 新预约待确认；商品已预约\nversion + 1；约定快照
+  Service -> DB : 写预约、商品、最终 SUCCESS 结果\n及一条成功 CHANGE 审计
+  Service -> DB : 检查 I1-I7；COMMIT
+  DB --[#26725E]> Service : 全部提交完成
+end
+Service --> API : 原预约编号、已提交结果、当前状态
+API --> Buyer : 预约成功，等待卖家确认
+
+legend bottom
+  K = (用户, 动作, 提交标记)。无独立提交的“处理中”记录。
+  业务拒绝：不改业务，保存 REJECTED 结果与失败说明后提交。
+  任一写入失败：整个 T 回滚；提交结果不明：保留原 K 查询重试，见幂等图。
+endlegend
+
+@enduml
